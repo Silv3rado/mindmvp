@@ -1,0 +1,12 @@
+/build
+/.expo
+/node_modules
+/.gradle
+/local.properties
+/.idea
+*.iml
+google-services.json
+*.keystore
+*.jks
+.DS_Store
+.env

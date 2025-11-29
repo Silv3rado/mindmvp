@@ -1,0 +1,58 @@
+import { MeditationSession } from "@/types/meditation";
+
+export const meditationSessions: MeditationSession[] = [
+  {
+    id: "1",
+    title: "Deep Sleep Journey",
+    duration: 30,
+    category: "Sleep",
+    coverImage: require("@/attached_assets/generated_images/sleep_meditation_cover_art.png"),
+    description: "A calming meditation to help you drift into deep, restful sleep.",
+    audioUrl: "https://www.soundhealing.audio/mp3/10-minute-meditation.mp3",
+  },
+  {
+    id: "2",
+    title: "Morning Focus Boost",
+    duration: 10,
+    category: "Focus",
+    coverImage: require("@/attached_assets/generated_images/focus_meditation_cover_art.png"),
+    description: "Start your day with clarity and enhanced concentration.",
+    audioUrl: "https://www.soundhealing.audio/mp3/10-minute-meditation.mp3",
+  },
+  {
+    id: "3",
+    title: "Stress Relief",
+    duration: 15,
+    category: "Stress",
+    coverImage: require("@/attached_assets/generated_images/stress_relief_cover_art.png"),
+    description: "Release tension and find inner peace with this calming session.",
+    audioUrl: "https://www.soundhealing.audio/mp3/10-minute-meditation.mp3",
+  },
+  {
+    id: "4",
+    title: "Quick Calm",
+    duration: 5,
+    category: "Short",
+    coverImage: require("@/attached_assets/generated_images/sleep_meditation_cover_art.png"),
+    description: "A brief meditation for instant relaxation.",
+    audioUrl: "https://www.soundhealing.audio/mp3/10-minute-meditation.mp3",
+  },
+  {
+    id: "5",
+    title: "Mindful Awareness",
+    duration: 40,
+    category: "Deep",
+    coverImage: require("@/attached_assets/generated_images/focus_meditation_cover_art.png"),
+    description: "Explore deep states of consciousness and awareness.",
+    audioUrl: "https://www.soundhealing.audio/mp3/10-minute-meditation.mp3",
+  },
+  {
+    id: "6",
+    title: "Evening Unwind",
+    duration: 20,
+    category: "Sleep",
+    coverImage: require("@/attached_assets/generated_images/sleep_meditation_cover_art.png"),
+    description: "Gently transition from day to night with peaceful relaxation.",
+    audioUrl: "https://www.soundhealing.audio/mp3/10-minute-meditation.mp3",
+  },
+];

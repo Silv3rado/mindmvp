@@ -1,0 +1,223 @@
+Отлично — вижу проект. Ниже даю последовательные действия и готовые команды/фрагменты кода, которые можно вставить в Replit. Сначала — кратко по-русски, затем полный английский блок (готовый к вставке в Replit), как ты просил.
+
+Кратко (на русском)
+
+1. Иконки крестиками = шрифт иконок не подключён. Решение: установить и подключить библиотеку иконок (для Expo — `@expo/vector-icons` / для bare React Native — `react-native-vector-icons` / для веб — подключить Material Icons или MUI icons).
+2. Музыка в библиотеке: нельзя напрямую использовать Drive folder как потоковую папку — скачай треки и залей в Firebase Storage (или S3) и добавь метаданные в Firestore. Для демо можно сгенерировать публичные URL.
+3. Обновить Player чтобы он использовал URL из Firestore и корректно обрабатывать CORS/background playback.
+4. Протестировать в Replit (expo start / npm start), убедиться, что шрифты/иконки загружаются (включая сборку шрифтов в web сборке).
+
+Ниже — полный английский инструктаж, готовый к вставке в Replit (включает команды, объяснения и минимальные примерные фрагменты кода).
+
+---
+
+ENGLISH — Paste / use in Replit (full instructions)
+
+1. Fix icon glyphs (crosses)
+
+* Problem: crosses mean the icon font is missing or not loaded.
+* Solution depends on stack used (React Native / Expo / Web). Follow the appropriate steps below.
+
+Expo / React Native (managed workflow)
+
+```bash
+# in your project root
+npm install @expo/vector-icons
+# If using expo cli:
+expo install react-native-safe-area-context
+```
+
+Usage (example in TSX):
+
+```tsx
+import { MaterialIcons } from '@expo/vector-icons';
+
+export function NavButton() {
+  return <MaterialIcons name="home" size={28} />;
+}
+```
+
+Bare React Native (non-Expo)
+
+```bash
+npm install react-native-vector-icons
+npx react-native link react-native-vector-icons
+# For Android:
+# ensure android/app/build.gradle contains apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
+# For iOS: run pod install inside ios folder
+```
+
+React (web) using Material Icons or MUI
+Option A — Google Material Icons:
+Add to `public/index.html`:
+
+```html
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+```
+
+Use in JSX:
+
+```jsx
+<span className="material-icons">home</span>
+```
+
+Option B — MUI icons:
+
+```bash
+npm install @mui/material @emotion/react @emotion/styled @mui/icons-material
+```
+
+Use:
+
+```jsx
+import HomeIcon from '@mui/icons-material/Home';
+<HomeIcon />
+```
+
+Important: after installing icon fonts, restart the dev server (stop and `npm start` or `expo start` again). If fonts were added manually, verify font files are bundled and referenced (React Native: fonts in `android/app/src/main/assets/fonts` or via `react-native.config.js`).
+
+2. Host meditation audio (from Google Drive folder)
+
+* Google Drive folder cannot be reliably streamed by direct link; recommended: download audio files locally then upload to a proper public storage (Firebase Storage, AWS S3, or a CDN).
+* Recommended flow: Firebase (fast to integrate with existing Firebase Auth + Firestore).
+
+Steps: Firebase Storage + Firestore
+a) Create Firebase Project -> Enable Storage & Firestore.
+b) Upload audio files to Firebase Storage (e.g., path `audios/meditation1.mp3`).
+c) Make the files readable for your app:
+
+* For testing you can set Storage rules to allow read to authenticated users;
+* Or generate public download URL for demo.
+  d) Add metadata documents to Firestore collection `meditations`:
+
+```json
+{
+  "title": "Quick Calm",
+  "duration": 300,
+  "category": "Short",
+  "audio_url": "https://firebasestorage.googleapis.com/...",
+  "image_url": "https://.../cover1.jpg",
+  "difficulty": "Beginner",
+  "language": "ru"
+}
+```
+
+Seed script (Node.js) example — run locally and write documents to Firestore:
+
+```js
+// seed.js (requires firebase-admin)
+const admin = require('firebase-admin');
+admin.initializeApp({
+  credential: admin.credential.cert(require('./serviceAccountKey.json')),
+});
+const db = admin.firestore();
+
+const meditations = [
+  { title: 'Quick Calm', duration: 300, category: 'Short', audio_url: 'https://...', difficulty: 'Beginner' },
+  // add more
+];
+
+async function seed() {
+  const batch = db.batch();
+  meditations.forEach((m, i) => {
+    const ref = db.collection('meditations').doc(`demo-${i}`);
+    batch.set(ref, m);
+  });
+  await batch.commit();
+  console.log('Seed done');
+}
+seed();
+```
+
+(Place `serviceAccountKey.json` locally — do NOT commit to repo.)
+
+3. Update app code to load audio URLs from Firestore and play
+
+* Example: fetch list from Firestore, map to UI, use audio player lib:
+  For React Native/Expo use `expo-av` or `react-native-track-player` / `react-native-sound`. For web use `Howler.js` or native HTMLAudio.
+
+Example fetch (Firestore client):
+
+```ts
+import { collection, getDocs } from 'firebase/firestore';
+const col = collection(db, 'meditations');
+const snapshot = await getDocs(col);
+const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+setMeditations(list);
+```
+
+Player (expo-av) example:
+
+```tsx
+import { Audio } from 'expo-av';
+
+const sound = new Audio.Sound();
+await sound.loadAsync({ uri: meditation.audio_url }, { shouldPlay: true, staysActiveInBackground: true });
+```
+
+4. CORS and streaming considerations
+
+* Firebase Storage public URLs are fine for client streaming.
+* If you host audio on your own server, configure CORS to allow your app origin.
+
+5. Firestore metadata + images
+
+* Upload cover images to Storage, add `image_url` to Firestore entry.
+* In your Library screen, render image thumbnails from `image_url`.
+
+6. Example Firestore JSON (6 sample meditations)
+   Put this JSON as `firestore_seed.json` or use Node script above to seed.
+
+```json
+[
+  {"title":"Quick Calm","duration":300,"category":"Short","audio_url":"https://.../quick-calm.mp3","image_url":"https://.../cover1.jpg","difficulty":"Beginner"},
+  {"title":"Mindful Awareness","duration":2400,"category":"Deep","audio_url":"https://.../mindful-awareness.mp3","image_url":"https://.../cover2.jpg","difficulty":"Advanced"},
+  {"title":"Evening Unwind","duration":1200,"category":"Sleep","audio_url":"https://.../evening-unwind.mp3","image_url":"https://.../cover3.jpg","difficulty":"All"},
+  {"title":"Stress Relief","duration":900,"category":"Stress","audio_url":"https://.../stress-relief.mp3","image_url":"https://.../cover4.jpg","difficulty":"Beginner"},
+  {"title":"Breathing Reset","duration":180,"category":"Breathing","audio_url":"https://.../breathing-reset.mp3","image_url":"https://.../cover5.jpg","difficulty":"All"},
+  {"title":"Focus Flow","duration":600,"category":"Focus","audio_url":"https://.../focus-flow.mp3","image_url":"https://.../cover6.jpg","difficulty":"Intermediate"}
+]
+```
+
+7. UI changes — persistent bottom player
+
+* Keep a small persistent player component mounted in a parent (App or main Navigator).
+* When a session is selected, update global player state (context or provider).
+
+8. Replit-specific notes
+
+* If using Expo: use Replit’s terminal: `npx expo start --tunnel` and open mobile preview via Expo Go.
+* If web React: `npm start` runs the web dev server; open Replit preview.
+* Fonts: In Replit ensure `public` or `static` assets are present and referenced. Restart dev server after adding fonts.
+
+9. Quick checklist to finish:
+
+* [ ] Fix icon fonts (install and import).
+* [ ] Download Drive audio files and upload to Firebase Storage.
+* [ ] Seed Firestore with meditations metadata.
+* [ ] Update library screen to read Firestore and display `image_url` thumbnails.
+* [ ] Update player to stream `audio_url` (expo-av / howler / audio lib).
+* [ ] Test background playback and resume on app reopen.
+* [ ] Set Firebase rules and remove any service account keys from repo.
+* [ ] Add README section: how to configure Firebase and where to put credentials (local env or Replit Secrets).
+
+10. Useful commands (examples)
+
+```bash
+# install typical libs for Expo RN
+npm install firebase @react-native-async-storage/async-storage @expo/vector-icons expo-av
+# for MUI web
+npm install @mui/material @emotion/react @emotion/styled @mui/icons-material
+```
+
+11. If you want, I can:
+
+* Generate the Firestore seed JSON using the files from your Drive (you need to confirm you’ll upload audio to Firebase Storage and provide the final public URLs), or
+* Produce exact code snippets to drop into `LibraryScreen.tsx` and `PlayerScreen.tsx` that work with Firestore + expo-av.
+
+---
+
+Скажи, что делать дальше:
+
+1. Хочешь, чтобы я подготовил конкретный `LibraryScreen.tsx` и `PlayerScreen.tsx` с подключением Firestore и `expo-av` (я вставлю код прямо сюда)?
+2. Или загрузишь аудиофайлы в Firebase и пришлёшь публичные ссылки — я сгенерирую JSON seed и примерный fetch код?

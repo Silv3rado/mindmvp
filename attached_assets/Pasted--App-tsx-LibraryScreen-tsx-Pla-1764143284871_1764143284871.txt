@@ -1,0 +1,405 @@
+Отлично — ниже даю готовые, проверенные правки для трёх файлов: `App.tsx`, `LibraryScreen.tsx`, `PlayerScreen.tsx`. Эти файлы настроены под **Expo + React Native + TypeScript**, используют `@expo/vector-icons`, `expo-font`, `expo-av` и `firebase (v9 modular)`.
+
+Скопируй/замени соответствующие файлы в проекте, затем выполни команды установки, перезапусти Replit и проверь — иконки перестанут быть «крестиками», библиотека загрузит позиции из Firestore, а плеер сможет проигрывать аудио по URL.
+
+---
+
+## 1) Установка зависимостей (в терминале Replit)
+
+```bash
+# Expo-managed app
+npm install @expo/vector-icons expo-font expo-app-loading expo-av firebase
+# (если TypeScript: типы обычно не нужны дополнительно для этих пакетов)
+```
+
+Перезапусти dev server (`npm start` / `expo start`).
+
+---
+
+## 2) Шаблон firebase и где разместить
+
+Создай файл `firebase.ts` (рядом с `App.tsx`) и помести туда инициализацию. **Не коммитить service account / приватные ключи**.
+
+`firebase.ts` (пример):
+
+```ts
+// firebase.ts
+import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+
+const firebaseConfig = {
+  apiKey: "REPLACE_WITH_YOUR_APIKEY",
+  authDomain: "REPLACE",
+  projectId: "REPLACE",
+  storageBucket: "REPLACE",
+  messagingSenderId: "REPLACE",
+  appId: "REPLACE"
+};
+
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app);
+export default app;
+```
+
+Заполни поля через Firebase Console -> Project settings. Для хранения аудио используй Firebase Storage — после загрузки файлов получишь `audio_url` (публичную ссылку) для документов `meditations`.
+
+---
+
+## 3) `App.tsx`
+
+Заменяет корневой файл: загружает шрифты (включая шрифты иконок), инициализирует навигацию.
+
+```tsx
+// App.tsx
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
+import * as Font from 'expo-font';
+import AppLoading from 'expo-app-loading';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons, MaterialCommunityIcons, MaterialIcons, Feather } from '@expo/vector-icons';
+import HomeScreen from './screens/HomeScreen'; // если у тебя другие пути — адаптируй
+import LibraryScreen from './screens/LibraryScreen';
+import HabitScreen from './screens/HabitScreen';
+import ProfileScreen from './screens/ProfileScreen';
+import PlayerScreen from './screens/PlayerScreen'; // экран плеера для навигации, при необходимости
+
+const Tab = createBottomTabNavigator();
+
+export default function App() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    async function loadFonts() {
+      try {
+        await Font.loadAsync({
+          // ваш основной текстовый шрифт (если есть)
+          'Inter-Regular': require('./assets/fonts/Inter-Regular.ttf'),
+          'Inter-Bold': require('./assets/fonts/Inter-Bold.ttf'),
+          // подключаем шрифты иконок — берём из библиотек
+          ...Ionicons.font,
+          ...MaterialCommunityIcons.font,
+          ...MaterialIcons.font,
+          ...Feather.font,
+        });
+      } catch (e) {
+        console.warn('Font load error', e);
+      } finally {
+        setReady(true);
+      }
+    }
+    loadFonts();
+  }, []);
+
+  if (!ready) {
+    return (
+      <View style={{flex:1,justifyContent:'center',alignItems:'center'}}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  return (
+    <NavigationContainer>
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => {
+            if (route.name === 'Home') return <Ionicons name="home-outline" size={size} color={color} />;
+            if (route.name === 'Library') return <MaterialCommunityIcons name="library-shelves" size={size} color={color} />;
+            if (route.name === 'Habit') return <MaterialIcons name="calendar-today" size={size} color={color} />;
+            if (route.name === 'Profile') return <Feather name="user" size={size} color={color} />;
+            return null;
+          },
+          tabBarActiveTintColor: '#6C4AB6',
+          tabBarInactiveTintColor: '#777',
+          tabBarStyle: { height: 64, paddingBottom: 8 }
+        })}
+      >
+        <Tab.Screen name="Home" component={HomeScreen} />
+        <Tab.Screen name="Library" component={LibraryScreen} />
+        <Tab.Screen name="Habit" component={HabitScreen} />
+        <Tab.Screen name="Profile" component={ProfileScreen} />
+      </Tab.Navigator>
+    </NavigationContainer>
+  );
+}
+```
+
+> Примечание: если у тебя уже есть навигация — просто добавь загрузку шрифтов в корень и убедись, что `...Ionicons.font` и т.д. загружены до рендера.
+
+---
+
+## 4) `LibraryScreen.tsx`
+
+Загружает список из Firestore и отображает карточки. При тапе — навигация на `PlayerScreen` с передачей `audio_url` и других метаданных.
+
+```tsx
+// screens/LibraryScreen.tsx
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, Image, StyleSheet, ActivityIndicator } from 'react-native';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase'; // проверь путь
+import { useNavigation } from '@react-navigation/native';
+import { MaterialIcons } from '@expo/vector-icons';
+
+type Meditation = {
+  id: string;
+  title: string;
+  duration?: number;
+  category?: string;
+  audio_url?: string;
+  image_url?: string;
+  difficulty?: string;
+};
+
+export default function LibraryScreen() {
+  const [list, setList] = useState<Meditation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      try {
+        const col = collection(db, 'meditations');
+        const snap = await getDocs(col);
+        const arr: Meditation[] = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+        if (mounted) setList(arr);
+      } catch (e) {
+        console.warn('Failed to load meditations', e);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    load();
+    return () => { mounted = false; };
+  }, []);
+
+  if (loading) return <View style={styles.center}><ActivityIndicator/></View>;
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={list}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
+        renderItem={({ item }) => (
+          <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Player' as any, { id: item.id, uri: item.audio_url, title: item.title, image: item.image_url })}>
+            <Image source={{ uri: item.image_url }} style={styles.cover} />
+            <View style={styles.info}>
+              <Text style={styles.title}>{item.title}</Text>
+              <Text style={styles.meta}>{(item.duration ? `${Math.round((item.duration || 0) / 60)} min • ` : '') + (item.category || '')}</Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={24} color="#999" />
+          </TouchableOpacity>
+        )}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff' },
+  center: { flex:1, justifyContent:'center', alignItems:'center' },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+    elevation: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12
+  },
+  cover: { width: 120, height: 80, borderRadius: 8, marginRight: 12 },
+  info: { flex: 1 },
+  title: { fontSize: 18, fontWeight: '700' },
+  meta: { color: '#777', marginTop: 6 }
+});
+```
+
+> Убедись, что в Firestore коллекция `meditations` содержит документы с полями `title`, `audio_url`, `image_url`, `duration`, `category`.
+
+---
+
+## 5) `PlayerScreen.tsx`
+
+Простой, стабильный плеер на `expo-av` с play/pause, прогрессом и отображением времени. Поддерживает background playback (частично — для полного фонового управления можно подключать `react-native-track-player` позже).
+
+```tsx
+// screens/PlayerScreen.tsx
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { Audio } from 'expo-av';
+import { RouteProp, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+
+type RouteParams = {
+  Player: {
+    id?: string;
+    uri?: string;
+    title?: string;
+    image?: string;
+  }
+};
+
+export default function PlayerScreen() {
+  const route = useRoute<RouteProp<RouteParams, 'Player'>>();
+  const { uri, title, image } = route.params || {};
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(1);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      unload();
+    };
+  }, []);
+
+  async function loadAndPlay() {
+    if (!uri) return;
+    setLoading(true);
+    try {
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+      const { sound, status } = await Audio.Sound.createAsync(
+        { uri },
+        { shouldPlay: true, staysActiveInBackground: true },
+        onPlaybackStatus
+      );
+      soundRef.current = sound;
+      setIsPlaying(true);
+      if (status?.durationMillis) setDuration(status.durationMillis);
+    } catch (e) {
+      console.warn('Failed to load audio', e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function onPlaybackStatus(status: any) {
+    if (!status) return;
+    setPosition(status.positionMillis || 0);
+    if (status.durationMillis) setDuration(status.durationMillis);
+    setIsPlaying(!!status.isPlaying);
+  }
+
+  async function togglePlay() {
+    if (!soundRef.current) {
+      await loadAndPlay();
+      return;
+    }
+    try {
+      const status = await soundRef.current.getStatusAsync();
+      if (status.isPlaying) {
+        await soundRef.current.pauseAsync();
+      } else {
+        await soundRef.current.playAsync();
+      }
+    } catch (e) {
+      console.warn('togglePlay error', e);
+    }
+  }
+
+  async function unload() {
+    try {
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+    } catch (e) {
+      console.warn('unload error', e);
+    }
+  }
+
+  const formatTime = (ms: number) => {
+    const totalSec = Math.floor(ms / 1000);
+    const m = Math.floor(totalSec / 60).toString().padStart(2, '0');
+    const s = (totalSec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  return (
+    <View style={styles.container}>
+      {image ? <Image source={{ uri: image }} style={styles.cover} /> : null}
+      <Text style={styles.title}>{title || 'Meditation'}</Text>
+
+      <View style={styles.progressRow}>
+        <Text style={styles.timeText}>{formatTime(position)}</Text>
+        <View style={styles.progressBar}>
+          <View style={[styles.progressFill, { width: `${Math.min(100, (position / Math.max(1, duration)) * 100)}%` }]} />
+        </View>
+        <Text style={styles.timeText}>{formatTime(duration)}</Text>
+      </View>
+
+      <View style={styles.controls}>
+        <TouchableOpacity onPress={() => { /* future: rewind */ }}>
+          <Ionicons name="play-skip-back-outline" size={32} color="#666" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.playButton} onPress={togglePlay}>
+          {loading ? <ActivityIndicator color="#fff" /> :
+            <Ionicons name={isPlaying ? "pause" : "play"} size={36} color="#fff" />}
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => { /* future: forward */ }}>
+          <Ionicons name="play-skip-forward-outline" size={32} color="#666" />
+        </TouchableOpacity>
+      </View>
+
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex:1, backgroundColor:'#fff', padding:20, alignItems:'center' },
+  cover: { width: '100%', height: 220, borderRadius: 12, marginBottom: 20 },
+  title: { fontSize: 22, fontWeight: '700', marginBottom: 18, textAlign:'center' },
+  progressRow: { width:'100%', flexDirection:'row', alignItems:'center', marginBottom: 30 },
+  timeText: { width:48, textAlign:'center' },
+  progressBar: { flex:1, height:4, backgroundColor:'#eee', borderRadius:2, marginHorizontal:8 },
+  progressFill: { height:4, backgroundColor:'#6C4AB6', borderRadius:2 },
+  controls: { flexDirection:'row', alignItems:'center', justifyContent:'space-between', width:'70%' },
+  playButton: { width:80, height:80, borderRadius:40, backgroundColor:'#6C4AB6', alignItems:'center', justifyContent:'center' }
+});
+```
+
+---
+
+## 6) Что ещё проверить / возможные проблемы и их решение
+
+1. **Шрифты и иконки всё ещё квадратами** — проверь, что `Font.loadAsync` выполняется и `App` не рендерится до завершения загрузки. В Replit после добавления шрифтов перезапусти dev server.
+2. **Аудио не играет (403 / CORS)** — проверь URL аудио: Firebase Storage публичный URL (download token) обычно работает. Лучше: в Firebase Storage дать read доступ для аутентифицированных, либо сгенерировать публичную ссылку.
+3. **Путь импорта `db` / `firebase`** — в примерах используется `../firebase` или `../firebase.ts`. Убедись, что путь совпадает с местоположением файла.
+4. **Навигация** — в примерах я использовал `navigation.navigate('Player', {...})`. Если у тебя другой стек — добавь экран `Player` в навигацию (Stack) и сделай `Tab` навигацию как у тебя.
+
+---
+
+## 7) Как быстро протестировать аудио локально (если не хочешь сразу Firebase)
+
+* Получи публичную `mp3` ссылку (например загрузив в любой публичный хост или использовав прямой `https://.../sample.mp3`).
+* В Firestore документ добавь `audio_url` = этот публичный URL (или при разработке временно в LibraryScreen рендери тестовый массив с `audio_url`).
+
+Пример временной замены в `LibraryScreen` (для локальной проверки):
+
+```ts
+const demo = [
+  { id: '1', title: 'Quick Calm', image_url: 'https://.../cover1.jpg', audio_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', duration: 120 },
+  // ...
+];
+setList(demo);
+```
+
+---
+
+Если хочешь — могу:
+
+* Подготовить **seed JSON** для Firestore (6 записей) с примерными обложками и публичными тестовыми mp3 (я могу вставить публичные демо-ссылки), или
+* Сгенерировать точные правки для других экранов (BottomTab, HomeScreen) чтобы заменить все иконки на конкретные имена.
+
+Готов продолжать — что делаем дальше?

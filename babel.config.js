@@ -1,0 +1,20 @@
+module.exports = function (api) {
+  api.cache(true);
+  return {
+    presets: ["babel-preset-expo"],
+    plugins: [
+      [
+        "module-resolver",
+        {
+          root: ["./"],
+          alias: {
+            "@": "./",
+            "react-native-vector-icons": "@expo/vector-icons",
+          },
+          extensions: [".ios.js", ".android.js", ".js", ".ts", ".tsx", ".json"],
+        },
+      ],
+      "react-native-reanimated/plugin",
+    ],
+  };
+};

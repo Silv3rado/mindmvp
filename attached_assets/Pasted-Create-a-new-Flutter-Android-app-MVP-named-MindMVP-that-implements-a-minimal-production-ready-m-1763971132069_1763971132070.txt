@@ -1,0 +1,58 @@
+Create a new Flutter Android app (MVP) named "MindMVP" that implements a minimal, production-ready meditation app. Deliver a working project that can be built and run on Android (Flutter stable). Follow these requirements exactly.
+
+1) Goal & scope (MVP):
+- Minimalist UI, dark/light support, clean typography and large tappable controls.
+- Core features only:
+  • Catalog of audio meditations organized by categories (Sleep, Stress, Focus, Short 3–10 min, Deep 20–40 min).
+  • Audio player with play/pause/seek, fade-in/out, background playback and simple sleep timer.
+  • Simple Habit tracker (calendar view + streak count).
+  • Push / local reminders (scheduling).
+  • Basic breathing exercise screen (visual guide + timer).
+  • Lightweight personalization: ask user 3 onboarding questions (goal, time per day, experience level) and recommend 3 starter sessions.
+  • Account auth (Firebase Email + Google Sign-In).
+  • Subscription gating using Google Play Billing (free 7-day trial + monthly subscription stubbed for testing).
+  • Admin/content backend using Firebase Firestore for meditations metadata and Remote Config for featured items.
+
+2) Tech stack & architecture:
+- Flutter (stable), Android target SDK 33+, null-safety.
+- State management: Riverpod or Provider.
+- Audio: just_audio or audio_service for background playback.
+- Backend: Firebase Auth, Firestore, Firebase Storage (for audio files or use mocked URLs), Firebase Cloud Functions (optional hooks).
+- Integrate OpenAI (or compatible) API server-side via a small Node/Express function (or Cloud Function) to produce personalized session recommendations based on user onboarding and recent usage. Provide code to call the API securely (server-side key) — do NOT expose keys in client code.
+- Provide a small sample ML suggestion flow: send user profile → get top-3 recommended session IDs → client fetches those sessions from Firestore.
+- For on-device personalization (optional future): comment where TFLite / on-device model would be plugged.
+
+3) UX / UI details:
+- Minimalist screens: Onboarding, Home (recommended + categories), Player (bottom player persistent), Habit, Breathing exercise, Profile / Subscription.
+- Use neutral palette, minimalist icons, clear spacing. Include simple animations for transitions (no heavy graphics).
+- Include a placeholder app icon and load a provided logo file at path: /path/to/logo.png (replace with actual path or upload). The app should show this logo on onboarding and settings.
+
+4) Deliverables (in repository):
+- Fully working Flutter project with clear README including:
+  • How to run locally on Replit (if possible) and on Android emulator / device.
+  • How to configure Firebase (where to add google-services.json) and how to add OpenAI API key to a server function.
+  • How to test subscription flows (use Google Play Billing testing notes or local stubs).
+- Example Firestore data seed script (JSON) with 6 sample meditations (title, duration, category, audio_url, narration_language, difficulty).
+- Minimal Node/Express server (or Cloud Function) with endpoint /recommend that accepts a user profile and returns recommended session IDs using a deterministic, explainable algorithm plus a commented example calling OpenAI (pseudo-call ok, include where to insert API key).
+- Unit tests for recommendation logic and basic widget tests for Player UI.
+
+5) Implementation & dev notes:
+- Use only permissive and actively maintained packages.
+- Include CI/dev command to run Flutter format, analyzer, and tests.
+- Default to English strings with comments showing where to add Russian/Uzbek translations (localization-ready).
+- Stub long audio files; include short sample audio files (10–30s) or reference public URLs for demo.
+
+6) Priority & acceptance criteria:
+- App builds and runs on Android and plays audio in background.
+- Onboarding collects the 3 profile fields and the server returns three recommendations.
+- Subscription UI present and simulated for gating premium sessions.
+- Habit tracker records days locally and shows streak.
+- README gives step-by-step setup instructions for Firebase and for running the recommendation server.
+
+7) Deliver a short development checklist at top of the repo and estimate of what remains to reach production (design polish, real audio, payment verification, analytics).
+
+IMPORTANT: if any secret (API key or google-services.json) is required, put instructions in README and environment variables — do NOT commit real keys.
+
+If you need the brand logo, use the file at: /path/to/logo.png  ← replace this path with my uploaded logo file path when wiring the project.
+
+Start now and create the repository and code base. Provide commit summary and short run instructions in the final README.
