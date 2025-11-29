@@ -10,3 +10,5 @@ google-services.json
 *.jks
 .DS_Store
 .env
+
+attached_assets/*.json
