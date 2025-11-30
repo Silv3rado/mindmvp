@@ -10,5 +10,5 @@
       "android": { "buildType": "app-bundle" }
     }
   },
-  "cli": { "appVersionSource": "app.json" }
+  "cli": { "appVersionSource": "local" }
 }
