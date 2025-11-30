@@ -1,16 +1,14 @@
 {
   "build": {
-    "production": {
-      "distribution": "store",
-      "android": {
-        "buildType": "app-bundle"
-      }
-    },
     "preview": {
       "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      }
+      "android": { "buildType": "apk" },
+      "env": { "EAS_BUILD_NODE_VERSION": "18", "NODE_ENV": "production" }
+    },
+    "production": {
+      "distribution": "store",
+      "android": { "buildType": "app-bundle" }
     }
-  }
+  },
+  "cli": { "appVersionSource": "app.json" }
 }
