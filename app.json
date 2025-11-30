@@ -48,6 +48,12 @@
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#0b3b3b"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "510b4c54-dffc-4121-848c-a9174e2e742a"
+      }
+    },
+    "owner": "silvverkam"
   }
 }
